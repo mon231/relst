@@ -18,7 +18,7 @@ class NameGenerator:
         new_name = None
 
         while new_name in self.__used_names:
-            new_name = ''.join(random.choices(string.ascii_uppercase, k=NAME_LENGTH))
+            new_name = ''.join(random.choices(string.ascii_uppercase, k=FUNCTION_NAME_LENGTH))
 
         self.__used_names.add(new_name)
         return new_name
