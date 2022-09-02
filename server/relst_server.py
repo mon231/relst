@@ -1,7 +1,7 @@
 from flask import Flask
 from waitress import serve
 from typing import Callable
-from name_generator import NameGenerator
+from .name_generator import NameGenerator
 from types import FunctionType, MethodType
 from inspect import iscoroutinefunction, signature
 
