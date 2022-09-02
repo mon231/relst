@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def main():
@@ -7,7 +7,7 @@ def main():
         version="1.0.0",
         author="Ariel Tubul",
         description="Package used to implement relst-api server and client",
-        packages=['relst']
+        packages=find_packages()
     )
 
 
