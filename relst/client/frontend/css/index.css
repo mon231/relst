@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Encode+Sans&display=swap');
+
+:root {
+	--font-body: 'Encode Sans', sans-serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+}
+
+.wrapper {
+	font-family: var(--font-body);
+	font-weight: 500;
+}
