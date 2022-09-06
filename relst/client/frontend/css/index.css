@@ -1,7 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Encode+Sans&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
 
 :root {
 	--font-body: 'Encode Sans', sans-serif;
+	--font-code: 'JetBrains Mono', monospace;
+	--theme-text: #1f2937;
+	--theme-text-light: #4b5563;
+	--theme-text-lighter: #9ca3af;
+	--theme-blue: #00aaff;
+	--theme-blue-light: #D5FFFF;
 }
 
 * {
@@ -11,9 +18,81 @@
 body {
 	margin: 0;
 	padding: 0;
+	text-align: center;
 }
 
 .wrapper {
+	margin: 0 auto;
+	padding-right: 32px;
+	padding-left: 32px;
+	text-align: left;
 	font-family: var(--font-body);
 	font-weight: 500;
+	line-height: 1.625;
+	max-width: 800px;
+}
+
+.class-title {
+	display: flex;
+	flex-direction: row;
+	row-gap: 20px;
+	color: var(--theme-text);
+}
+
+.class-author {
+	font-size: 16px;
+}
+
+.class-date {
+	font-size: 16px;
+	color: var(--theme-text-lighter);
+}
+
+.class-info {
+	color: var(--theme-text-light);
+	font-size: 30px;
+}
+
+.functions-list {
+	color: var(--theme-text-light);
+	list-style-type: none;
+	margin-left: 0;
+	padding-left: 0;
+}
+
+.function-item {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 5px;
+}
+
+.function-item > .function-anchor {
+	visibility: hidden;
+	opacity: 0;
+  	transition: visibility 0s, opacity 0.5s linear;
+}
+
+.function-item:hover > .function-anchor {
+	visibility: visible;
+  	opacity: 1;
+}
+
+.function-item:not(:last-child) {
+	margin-bottom: 25px;
+}
+
+.function-name {
+	font-family: var(--font-code);
+	font-size: 32px;
+}
+
+::-moz-selection {
+	color: var(--theme-blue);
+	background: var(--theme-blue-light);
+}
+
+::selection {
+	color: var(--theme-blue);
+	background: var(--theme-blue-light);
 }
