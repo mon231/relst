@@ -3,7 +3,6 @@ from waitress import serve
 from typing import Callable
 from .relst_server import RelstServer
 from .name_generator import NameGenerator
-from types import FunctionType, MethodType
 from inspect import iscoroutinefunction, signature
 
 
@@ -11,6 +10,7 @@ class RelstFlaskServer(RelstServer):
     def __init__(self, server_port: int, request_hanlder):
         self.__flask_app = Flask(__name__)
         self.__name_generator = NameGenerator()
+        self.__callables = dict()
 
         super().__init__(server_port, request_hanlder)
 
@@ -30,5 +30,5 @@ class RelstFlaskServer(RelstServer):
                 return callable(**kwargs)
 
         callable_signature = signature(callable)
-        # TODO: add to dict
+
         pass
