@@ -23,22 +23,27 @@ titleElement.append(authorElement);
 functionsList.forEach((func) => {
 	const itemElement = document.createElement('li');
 	const anchorElement = document.createElement('a');
-	const functionElement = document.createElement('h3');
 	const anchorImgElement = document.createElement('img');
+	const functionElement = document.createElement('h3');
+	const functionLinkElement = document.createElement('a');
 
 	itemElement.classList.add('function-item');
 	functionElement.classList.add('function-name');
+	functionElement.classList.add('underline');
 	anchorElement.classList.add('function-anchor');
+	functionLinkElement.classList.add('function-link');
 
 	anchorImgElement.setAttribute('src', '../images/anchor.png');
 	anchorImgElement.setAttribute('width', '16');
 	anchorImgElement.setAttribute('height', '16');
-	itemElement.setAttribute('id', `${func}`);	
+	itemElement.setAttribute('id', `${func}`);
 	anchorElement.setAttribute('href', `#${func}`);
+	functionLinkElement.setAttribute('href', '#');
 
 	anchorElement.append(anchorImgElement);
 	itemElement.append(anchorElement);
-	functionElement.innerText = func;
+	functionElement.append(functionLinkElement);
+	functionLinkElement.innerText = func;
 	itemElement.append(functionElement);
 	listElement.append(itemElement);
 });
