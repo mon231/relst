@@ -22,30 +22,41 @@ titleElement.append(authorElement);
 
 functionsList.forEach((func) => {
 	const itemElement = document.createElement('li');
+	const headlineElement = document.createElement('div');
 	const anchorElement = document.createElement('a');
 	const anchorImgElement = document.createElement('img');
-	const functionElement = document.createElement('h3');
-	const functionLinkElement = document.createElement('a');
+	const nameElement = document.createElement('h3');
+	const linkElement = document.createElement('a');
+	const briefElement = document.createElement('p');
+	const hrElement = document.createElement('hr');
 
 	itemElement.classList.add('function-item');
-	functionElement.classList.add('function-name');
-	functionElement.classList.add('underline');
+	nameElement.classList.add('function-name');
+	nameElement.classList.add('underline');
+	headlineElement.classList.add('function-headline');
 	anchorElement.classList.add('function-anchor');
-	functionLinkElement.classList.add('function-link');
+	linkElement.classList.add('function-link');
+	briefElement.classList.add('function-brief');
+	hrElement.classList.add('line-separator');
 
 	anchorImgElement.setAttribute('src', '../images/anchor.png');
 	anchorImgElement.setAttribute('width', '16');
 	anchorImgElement.setAttribute('height', '16');
-	itemElement.setAttribute('id', `${func}`);
-	anchorElement.setAttribute('href', `#${func}`);
-	functionLinkElement.setAttribute('href', '#');
+	itemElement.setAttribute('id', `${func["name"]}`);
+	anchorElement.setAttribute('href', `#${func["name"]}`);
+	anchorElement.setAttribute('title', 'Permalink to this headline');
+	linkElement.setAttribute('href', '#');
 
+	headlineElement.append(anchorElement);
 	anchorElement.append(anchorImgElement);
-	itemElement.append(anchorElement);
-	functionElement.append(functionLinkElement);
-	functionLinkElement.innerText = func;
-	itemElement.append(functionElement);
+	nameElement.append(linkElement);
+	linkElement.innerText = func["name"];
+	headlineElement.append(nameElement);
+	briefElement.innerText = func["brief"];
+	itemElement.append(headlineElement);
+	itemElement.append(briefElement);
 	listElement.append(itemElement);
+	listElement.append(hrElement);
 });
 
 wrapper.append(titleElement);
@@ -63,5 +74,17 @@ function getClassInfo() {
 }
 
 function getFunctionsList() {
-	return ["getTemperature", "getPrecipitation"];
+	return [
+		{
+			name: "getTemperature",
+			brief: "Returns the current temparature in a given country",
+			params: [{"name": "country", "type": "str"}],
+			return: {"name": "temparature", "type": "float"}
+		}, {
+			name: "getPrecipitation",
+			brief: "Returns the current precipitation percentage in a given country",
+			params: [{"name": "country", "type": "str"}],
+			return: {"name": "precipitation", "type": "float"}
+		}	
+	];
 }
