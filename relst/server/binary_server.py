@@ -3,7 +3,7 @@ from typing import Callable
 from .relst_server import RelstServer
 
 
-class RelstSocketServer(RelstServer):
+class RelstBinaryServer(RelstServer):
     def __init__(self, server_port: int, server_type: socketserver.BaseServer, request_hanlder):
         super().__init__(server_port, request_hanlder)
         self.__server_type = server_type
