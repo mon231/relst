@@ -7,7 +7,7 @@ from types import FunctionType, MethodType
 from inspect import iscoroutinefunction, signature
 
 
-class RelstFlaskServer(RelstServer):
+class RelstTextualServer(RelstServer):
     def __init__(self, server_port: int, request_hanlder):
         self.__flask_app = Flask(__name__)
         self.__name_generator = NameGenerator()
