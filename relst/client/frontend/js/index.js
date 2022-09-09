@@ -13,10 +13,10 @@ dateElement.classList.add('class-date');
 descElement.classList.add('class-info');
 listElement.classList.add('functions-list');
 
-titleElement.innerText = classInfo["name"];
-authorElement.innerText = `(by ${classInfo["author"]})`;
-dateElement.innerText = classInfo["date"];
-descElement.innerText = classInfo["description"];
+titleElement.innerText = classInfo['name'];
+authorElement.innerText = `(by ${classInfo['author']})`;
+dateElement.innerText = classInfo['date'];
+descElement.innerText = classInfo['description'];
 
 titleElement.append(authorElement);
 
@@ -25,7 +25,7 @@ functionsList.forEach((func) => {
 	const headlineElement = document.createElement('div');
 	const anchorElement = document.createElement('a');
 	const anchorImgElement = document.createElement('img');
-	const nameElement = document.createElement('h3');
+	const nameElement = document.createElement('p');
 	const linkElement = document.createElement('a');
 	const briefElement = document.createElement('p');
 	const hrElement = document.createElement('hr');
@@ -40,19 +40,20 @@ functionsList.forEach((func) => {
 	hrElement.classList.add('line-separator');
 
 	anchorImgElement.setAttribute('src', '../images/anchor.png');
-	anchorImgElement.setAttribute('width', '16');
-	anchorImgElement.setAttribute('height', '16');
-	itemElement.setAttribute('id', `${func["name"]}`);
-	anchorElement.setAttribute('href', `#${func["name"]}`);
+	anchorImgElement.setAttribute('width', '10');
+	anchorImgElement.setAttribute('height', '10');
+	itemElement.setAttribute('id', `${func['name']}`);
+	anchorElement.setAttribute('href', `#${func['name']}`);
 	anchorElement.setAttribute('title', 'Permalink to this headline');
 	linkElement.setAttribute('href', '#');
 
 	headlineElement.append(anchorElement);
 	anchorElement.append(anchorImgElement);
 	nameElement.append(linkElement);
-	linkElement.innerText = func["name"];
+
+	linkElement.innerText = parseFunction(func);
 	headlineElement.append(nameElement);
-	briefElement.innerText = func["brief"];
+	briefElement.innerText = func['brief'];
 	itemElement.append(headlineElement);
 	itemElement.append(briefElement);
 	listElement.append(itemElement);
@@ -87,4 +88,14 @@ function getFunctionsList() {
 			return: {"name": "precipitation", "type": "float"}
 		}	
 	];
+}
+
+function parseFunction(func) {
+	const params = func['params'];
+
+	const paramsParsed = params.map((param) => {
+		return `${param['name']}: ${param['type']}`;
+	}).join(', ');
+
+	return `${func['name']}(${paramsParsed}) -> ${func['return']['type']}`;
 }
