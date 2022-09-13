@@ -1,7 +1,7 @@
 from typing import Callable, Dict
 from abc import ABC, abstractmethod
+from typing import Callable, List, Dict
 from inspect import Signature, getdoc, signature
-from typing import Callable, List, Optional, Tuple, Dict, Any
 
 
 PRIVATE_OR_PROTECTED_PREFIX = '_'
@@ -10,7 +10,7 @@ PRIVATE_OR_PROTECTED_PREFIX = '_'
 class RelstServer(ABC):
     def __init__(self, server_port: int, request_hanlder):
         self._server_port = server_port
-        self._callables: Dict[str, Signature]
+        self._callables: Dict[str, Callable]
         self._request_handler = request_hanlder
 
         self._register_attributes()
@@ -25,14 +25,14 @@ class RelstServer(ABC):
 
         for callable in RelstServer.__get_object_methods(self._request_handler):
             self._register_callable(callable, callable.__name__)
-            self._callables[callable.__name__] = signature(callable)
+            self._callables[callable.__name__] = callable
 
     @abstractmethod
     def _register_callable(self, callable: Callable, name: str):
         pass
 
     @abstractmethod
-    def _unregister_all_callables():
+    def _unregister_all_callables(self):
         pass
 
     def __register_relst_methods(self):
@@ -46,16 +46,20 @@ class RelstServer(ABC):
 
         for method in relst_methods:
             # NOTE: relst-methods are the only methods allowed to start with '_'
-            self._register_callable(method, f"{method.__name__}")
+            self._register_callable(method, {method.__name__})
 
     def __get_class_name(self) -> str:
         return type(self.__request_hanlder).__name__
 
     def __get_class_help(self):
+        # NOTE: return class docstring
         return getdoc(self.__request_hanlder)
 
     def __get_methods_list(self) -> Dict[str, Signature]:
-        return self._callables
+        return {
+            callable_name: signature(callable)
+            for callable_name, callable in self._callables
+        }
 
     def __get_method_help(self, method_name: str) -> str:
         """
