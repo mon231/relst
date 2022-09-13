@@ -1,3 +1,3 @@
-from . import relst_server
-from .import relst_flask_server
-from .import relst_socket_server
+from .relst_server import RelstServer
+from .binary_server import RelstBinaryServer
+from .textual_server import RelstTextualServer
