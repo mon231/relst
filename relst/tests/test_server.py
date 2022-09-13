@@ -1,4 +1,4 @@
-from ..server.textual_server import RelstTextualServer
+from relst.server import RelstTextualServer
 
 
 SERVER_PORT = 1736
@@ -32,6 +32,9 @@ class EchoMethodName:
     @staticmethod
     async def asmalka():
         return 'asmalkas'
+
+    def echo(self, prefix: str, text: str) -> str:
+        return prefix + text
 
 
 def main():

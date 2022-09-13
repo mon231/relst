@@ -3,17 +3,15 @@ from typing import Callable
 from flask import Flask, request
 from .relst_server import RelstServer
 from inspect import iscoroutinefunction
-from werkzeug.exceptions import HTTPException, NotFound, \
-    ServiceUnavailable, InternalServerError
+from werkzeug.exceptions import HTTPException, NotFound, InternalServerError
 
 
 class RelstTextualServer(RelstServer):
     def __init__(self, server_port: int, request_hanlder):
         self.__flask_app = Flask(__name__)
-        self.__should_handle_requests = False
 
-        self.__register_exceptions_handler()
         self.__init_server()
+        self.__register_exceptions_handler()
 
         super().__init__(server_port, request_hanlder)
 
@@ -21,10 +19,10 @@ class RelstTextualServer(RelstServer):
         serve(self.__flask_app, port=self._server_port)
 
     def _register_callable(self, callable: Callable, name: str):
-        self.__should_handle_requests = True
+        self._callables[name] = callable
 
     def _unregister_all_callables(self):
-        self.__should_handle_requests = False
+        self._callables = dict()
 
     def __register_exceptions_handler(self):
         @self.__flask_app.errorhandler(Exception)
@@ -41,16 +39,14 @@ class RelstTextualServer(RelstServer):
     def __init_server(self):
         @self.__flask_app.route('/<callable_name>', methods=['POST', 'GET'])
         async def handle_request(callable_name):
-            if not self.__should_handle_requests:
-                raise ServiceUnavailable("Server doesn't currently accept requests")
-
             callable = self._callables.get(callable_name)
+            kwargs = request.json if request.is_json else dict()
 
             if not callable:
                 print(f'Attempt to access non existing function {callable_name}')
                 raise NotFound(f"Mehtod {callable_name} does not exist")
 
             if iscoroutinefunction(callable):
-                return await callable(**request.json)
+                return await callable(**kwargs)
 
-            return callable(**request.json)
+            return callable(**kwargs)
