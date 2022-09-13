@@ -2,15 +2,14 @@ from flask import Flask
 from waitress import serve
 from typing import Callable
 from .relst_server import RelstServer
+from inspect import iscoroutinefunction
 from .name_generator import NameGenerator
-from inspect import iscoroutinefunction, signature
 
 
 class RelstTextualServer(RelstServer):
     def __init__(self, server_port: int, request_hanlder):
         self.__flask_app = Flask(__name__)
         self.__name_generator = NameGenerator()
-        self.__callables = dict()
 
         super().__init__(server_port, request_hanlder)
 
@@ -28,7 +27,3 @@ class RelstTextualServer(RelstServer):
             @self.__name_generator.rename_function
             def callable_wrapper(**kwargs):
                 return callable(**kwargs)
-
-        callable_signature = signature(callable)
-
-        pass
