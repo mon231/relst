@@ -22,7 +22,12 @@ from relst.server import RelstTextualServer
 
 
 class EchoMethodName:
+    """
+    This is the server's help string
+    """
+
     def get_random_value(self):
+        "This is the help string of this method"
         return random.choice(('m', 1, 5.5, False))
 
     @staticmethod
