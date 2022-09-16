@@ -53,7 +53,7 @@ class RelstServer(ABC):
     def __get_methods_list(self) -> Dict[str, Signature]:
         return {
             callable_name: signature(callable)
-            for callable_name, callable in self._callables
+            for callable_name, callable in self._callables.items()
         }
 
     def __get_method_help(self, method_name: str) -> str:
