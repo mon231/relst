@@ -36,6 +36,9 @@ class EchoMethodName:
     def echo(self, prefix: str, text: str) -> str:
         return prefix + text
 
+    def raising(self):
+        raise RuntimeError('This is my random runtime error')
+
 
 def main():
     request_handler = EchoMethodName()
