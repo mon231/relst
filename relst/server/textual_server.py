@@ -1,8 +1,11 @@
+import json
 from waitress import serve
-from typing import Callable
+from types import NoneType
 from flask import Flask, request
 from .relst_server import RelstServer
-from inspect import iscoroutinefunction
+from dataclasses import is_dataclass, asdict
+from typing import Callable, Dict, List, Tuple
+from inspect import Signature, iscoroutinefunction
 from werkzeug.exceptions import HTTPException, NotFound, InternalServerError
 
 
@@ -47,6 +50,60 @@ class RelstTextualServer(RelstServer):
                 raise NotFound(f"Mehtod {callable_name} does not exist")
 
             if iscoroutinefunction(callable):
-                return await callable(**kwargs)
+                method_result = await callable(**kwargs)
+            else:
+                method_result = callable(**kwargs)
 
-            return callable(**kwargs)
+            return RelstTextualServer.__json_serialize(method_result)
+
+    @staticmethod
+    def __json_serialize(obj) -> str:
+        serialize = RelstTextualServer.__json_serialize
+
+        if isinstance(obj, (str, NoneType, int, float, bool)):
+            return json.dumps(obj)
+        elif is_dataclass(obj):
+            return serialize(asdict(obj))
+        elif isinstance(obj, (List, Tuple)):
+            return json.dumps([serialize(element) for element in obj])
+        elif isinstance(obj, Dict):
+            return json.dumps(
+                {
+                    serialize(key): serialize(value)
+                    for key, value in obj.items()
+                }
+            )
+        elif isinstance(obj, Signature):
+            return RelstTextualServer.__serialize_signature(obj)
+        elif isinstance(obj, type):
+            return RelstTextualServer.__serialize_annotation(obj)
+        else:
+            # NOTE: throws when obj isn't serializable
+            return json.dumps(str(obj))
+
+    @staticmethod
+    def __serialize_signature(obj: Signature):
+        params = []
+
+        for param in obj.parameters.values():
+            serialized_param = {
+                'name': param.name,
+                'type': param.annotation
+            }
+
+            if param.default is not Signature.empty:
+                serialized_param['default'] = param.default
+
+            params.append(param)
+
+        return RelstTextualServer.__json_serialize(
+            {
+                'params': params,
+                'return': obj.return_annotation
+            }
+        )
+
+    @staticmethod
+    def __serialize_annotation(obj: type) -> bool:
+        # NOTE: currently won't support complicated types parsing
+        return obj.__name__
