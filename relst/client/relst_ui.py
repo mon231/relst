@@ -1,6 +1,6 @@
 import eel
 from argparse import ArgumentParser
-from relst_flask_client import RelstFlaskClient
+from .relst_flask_client import RelstFlaskClient
 
 
 def main(args):

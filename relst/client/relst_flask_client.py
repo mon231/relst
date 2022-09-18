@@ -1,6 +1,5 @@
 import requests
-from inspect import Signature
-from relst_client import RelstClient, PRIVATE_OR_PROTECTED_PREFIX
+from .relst_client import RelstClient
 
 
 class RelstFlaskClient(RelstClient):
@@ -16,6 +15,3 @@ class RelstFlaskClient(RelstClient):
 
         response.raise_for_status()
         return response.json()
-
-    def _remove_methods(self):
-        pass
