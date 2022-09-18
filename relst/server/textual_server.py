@@ -54,32 +54,31 @@ class RelstTextualServer(RelstServer):
             else:
                 method_result = callable(**kwargs)
 
-            return RelstTextualServer.__json_serialize(method_result)
+            serializable_response = RelstTextualServer.__make_serializable(method_result)
+            return json.dumps(serializable_response)
 
     @staticmethod
-    def __json_serialize(obj) -> str:
-        serialize = RelstTextualServer.__json_serialize
+    def __make_serializable(obj) -> str:
+        make_serialize = RelstTextualServer.__make_serializable
 
         if isinstance(obj, (str, NoneType, int, float, bool)):
-            return json.dumps(obj)
+            return obj
         elif is_dataclass(obj):
-            return serialize(asdict(obj))
+            return make_serialize(asdict(obj))
         elif isinstance(obj, (List, Tuple)):
-            return json.dumps([serialize(element) for element in obj])
+            return [make_serialize(element) for element in obj]
         elif isinstance(obj, Dict):
-            return json.dumps(
-                {
-                    serialize(key): serialize(value)
-                    for key, value in obj.items()
-                }
-            )
+            return {
+                make_serialize(key): make_serialize(value)
+                for key, value in obj.items()
+            }
         elif isinstance(obj, Signature):
             return RelstTextualServer.__serialize_signature(obj)
         elif isinstance(obj, type):
             return RelstTextualServer.__serialize_annotation(obj)
         else:
             # NOTE: throws when obj isn't serializable
-            return json.dumps(str(obj))
+            return str(obj)
 
     @staticmethod
     def __serialize_signature(obj: Signature):
@@ -96,7 +95,7 @@ class RelstTextualServer(RelstServer):
 
             params.append(param)
 
-        return RelstTextualServer.__json_serialize(
+        return RelstTextualServer.__make_serializable(
             {
                 'params': params,
                 'return': obj.return_annotation
