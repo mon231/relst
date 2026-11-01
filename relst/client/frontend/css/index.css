@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap');
+
+:root {
+	--font-body: 'Source Sans Pro', sans-serif;
+	--font-code: 'Source Code Pro', monospace;
+	--theme-text: #282C34;
+	--theme-text-light: #4b5563;
+	--theme-text-lighter: #9ca3af;
+	--theme-blue: #00aaff;
+	--theme-blue-light: #D5FFFF;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+}
+
+.wrapper {
+	margin: 0 auto;
+	padding-right: 32px;
+	padding-left: 32px;
+	font-family: var(--font-body);
+	font-weight: 500;
+	line-height: 1.625;
+	width: 970px;
+}
+
+.class-title {
+	display: flex;
+	flex-direction: row;
+	row-gap: 20px;
+	color: var(--theme-text);
+	font-size: 60px;
+	margin-top: 10vh;
+}
+
+.class-author {
+	font-size: 20px;
+}
+
+.class-date {
+	margin-top: -35px;
+	font-size: 20px;
+	font-weight: 600;
+	color: var(--theme-text-lighter);
+}
+
+.class-info {
+	color: var(--theme-text-light);
+	font-size: 20px;
+}
+
+.functions-list {
+	color: var(--theme-text);
+	list-style-type: none;
+	margin-left: 0;
+	padding-left: 0;
+}
+
+.function-headline {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: -30px;
+}
+
+.function-headline > .function-anchor {
+	visibility: hidden;
+	opacity: 0;
+  	transition: visibility 0s, opacity 0.5s linear;
+}
+
+.function-headline:hover > .function-anchor {
+	visibility: visible;
+  	opacity: 1;
+}
+
+.function-item:not(:last-child) {
+	margin-bottom: 25px;
+}
+
+.function-name {
+	font-family: var(--font-code);
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.function-link {
+	color: var(--theme-text);
+	text-decoration: none;
+}
+
+.underline {
+	display: inline-block;
+}
+
+.underline::after {
+	content: '';
+	width: 0px;
+	height: 1px;
+	display: block;
+	background: var(--theme-blue);
+	transition: 400ms;
+}
+
+.underline:hover::after {
+	width: 100%;
+}
+
+.function-brief {
+	flex-direction: column;
+}
+
+::-moz-selection {
+	color: var(--theme-blue);
+	background: var(--theme-blue-light);
+}
+
+::selection {
+	color: var(--theme-blue);
+	background: var(--theme-blue-light);
+}
+
+.line-separator {
+	border-top: 1px solid var(--theme-text-lighter);
+	margin-bottom: 100px;
+}
+
+@media (max-width: 768px) {
+	.wrapper {
+		width: 100vw;
+	}
+
+	.class-title {
+		font-size: 40px;
+	}
+
+	.class-date {
+		font-size: 16px;
+	}
+}
