@@ -75,4 +75,4 @@ db.sqlite3-journal
 .ipynb_checkpoints
 celerybeat-schedule
 share/python-wheels/
-pip-delete-this-directory.txt
+pip-delete-this-directory.txt.playwright-mcp/

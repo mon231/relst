@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relst Console</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #fafafa; --panel: #fff; --text: #1f2328; --muted: #656d76; --border: #d0d7de;
+  --accent: #0969da; --ok: #1a7f37; --warn: #9a6700; --err: #cf222e; --code: #f3f4f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117; --panel: #161b22; --text: #e6edf3; --muted: #8d96a0; --border: #30363d;
+    --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --err: #f85149; --code: #1c2128;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel); display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; }
+header .help { color: var(--muted); white-space: pre-wrap; }
+nav { display: flex; gap: 4px; padding: 8px 20px 0; border-bottom: 1px solid var(--border); }
+nav button { border: 1px solid transparent; border-bottom: none; background: none; color: var(--muted); padding: 8px 14px; cursor: pointer; font: inherit; border-radius: 6px 6px 0 0; }
+nav button.active { color: var(--text); background: var(--panel); border-color: var(--border); margin-bottom: -1px; }
+main { padding: 16px 20px; max-width: 1200px; margin: 0 auto; }
+.hidden { display: none; }
+.method { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; }
+.method > summary { padding: 10px 14px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.method .name { font: 600 14px ui-monospace, monospace; }
+.method .sig, .muted { color: var(--muted); font: 12px ui-monospace, monospace; }
+.method .body { padding: 4px 14px 14px; border-top: 1px solid var(--border); }
+.doc { white-space: pre-wrap; color: var(--muted); margin: 8px 0; }
+label { display: grid; grid-template-columns: 150px 1fr; gap: 8px; align-items: center; margin: 6px 0; }
+label small { color: var(--muted); font-family: ui-monospace, monospace; }
+input, select, textarea, button.act { font: 13px ui-monospace, monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+input[type=text] { width: 100%; }
+textarea { width: 100%; min-height: 110px; resize: vertical; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+button.act { cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent); font-family: inherit; font-weight: 600; }
+button.act.secondary { background: none; color: var(--text); border-color: var(--border); }
+pre { background: var(--code); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow: auto; margin: 4px 0 10px; max-height: 320px; white-space: pre-wrap; word-break: break-all; font: 12px ui-monospace, monospace; }
+h4 { margin: 12px 0 0; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .04em; }
+.status { font-weight: 700; } .s2 { color: var(--ok); } .s4 { color: var(--warn); } .s5 { color: var(--err); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+th { color: var(--muted); font-weight: 600; }
+tr.trace { cursor: pointer; } tr.trace:hover { background: var(--code); }
+.pill { font: 11px ui-monospace, monospace; padding: 1px 6px; border: 1px solid var(--border); border-radius: 10px; color: var(--muted); }
+@media (max-width: 600px) { label { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Relst</h1>
+  <span class="help" id="help"></span>
+</header>
+<nav>
+  <button data-tab="methods" class="active">Methods</button>
+  <button data-tab="traces">Traces <span class="pill" id="trace-count">0</span></button>
+</nav>
+<main>
+  <section id="tab-methods"><div id="methods"></div></section>
+  <section id="tab-traces" class="hidden">
+    <div class="row" style="margin: 0 0 10px">
+      <button class="act secondary" id="clear-traces">Clear</button>
+      <label style="display:flex;gap:6px;margin:0"><input type="checkbox" id="live" checked> live</label>
+      <span class="muted">newest first; click a row for the raw request / response</span>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>time</th><th>via</th><th>protocol</th><th>method</th><th>status</th><th>ms</th><th>bytes in/out</th></tr></thead>
+      <tbody id="trace-rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (selector, root = document) => root.querySelector(selector);
+const el = (tag, props = {}, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+};
+const statusClass = (status) => 's' + String(status)[0];
+let protocols = {};
+let lastTraceId = 0;
+const traces = [];
+
+async function api(path, options) {
+  const response = await fetch('/_relst' + path, options);
+  return response.json();
+}
+
+function parseArgument(text, type) {
+  if (text.trim() === '') return undefined;
+  try { return JSON.parse(text); } catch (err) {
+    if (/str|any/i.test(type)) return text;
+    throw new Error('not valid JSON: ' + text);
+  }
+}
+
+function buildMethod(name, description) {
+  const inputs = [];
+  const signature = description.params.map((p) => `${p.name}: ${p.type}`).join(', ') + ` -> ${description.return}`;
+  const protocolSelect = el('select', {}, ...Object.keys(protocols).map((p) => el('option', { value: p, textContent: p })));
+  const rawBox = el('textarea', { spellcheck: false, placeholder: 'Press "Generate request" to build the raw payload, edit it freely, then "Send raw"' });
+  const output = el('div');
+
+  const form = description.params.map((param) => {
+    const input = el('input', { type: 'text', placeholder: 'JSON value' });
+    if ('default' in param) input.value = JSON.stringify(param.default);
+    inputs.push([param, input]);
+    return el('label', {}, el('span', {}, param.name, ' ', el('small', {}, param.type)), input);
+  });
+
+  const collectArgs = () => {
+    const args = {};
+    for (const [param, input] of inputs) {
+      const value = parseArgument(input.value, param.type);
+      if (value !== undefined) args[param.name] = value;
+    }
+    return args;
+  };
+
+  const run = async (spec, rawMode) => {
+    output.replaceChildren(el('span', { className: 'muted', textContent: 'working...' }));
+    try {
+      const result = await api('/try', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: name, protocol: protocolSelect.value, ...spec }),
+      });
+      if (result.error) throw new Error(result.error);
+      if (!rawMode || !rawBox.value) rawBox.value = result.request;
+      showResult(output, result);
+    } catch (err) {
+      output.replaceChildren(el('pre', { className: 's5', textContent: String(err.message || err) }));
+    }
+  };
+
+  const send = (generateOnly) => () => {
+    try { run({ args: collectArgs(), send: !generateOnly }, false); }
+    catch (err) { output.replaceChildren(el('pre', { className: 's5', textContent: err.message })); }
+  };
+  const sendRaw = () => run({ raw: rawBox.value, raw_encoding: protocolSelect.value === 'binary' ? 'hex' : 'text' }, true);
+
+  const buttons = el('div', { className: 'row' },
+    protocolSelect,
+    el('button', { className: 'act', textContent: 'Execute', onclick: send(false) }),
+    el('button', { className: 'act secondary', textContent: 'Generate request', onclick: send(true) }),
+    el('button', { className: 'act secondary', textContent: 'Send raw', onclick: sendRaw }),
+  );
+
+  return el('details', { className: 'method' },
+    el('summary', {}, el('span', { className: 'name', textContent: name }), el('span', { className: 'sig', textContent: signature })),
+    el('div', { className: 'body' },
+      description.doc ? el('div', { className: 'doc', textContent: description.doc }) : '',
+      ...form, buttons,
+      el('h4', { textContent: 'Raw request (editable; binary is hex)' }), rawBox,
+      output));
+}
+
+function showResult(output, result) {
+  const children = [
+    el('h4', { textContent: 'Request' }), el('pre', { textContent: result.request }),
+  ];
+  if ('status' in result) {
+    children.push(
+      el('h4', {}, 'Response ', el('span', { className: 'status ' + statusClass(result.status), textContent: result.status })),
+      el('pre', { textContent: result.response }),
+      el('h4', { textContent: 'Decoded' }),
+      el('pre', { textContent: result.decoded_error || JSON.stringify(result.decoded, null, 2) }));
+  }
+  output.replaceChildren(...children);
+}
+
+function renderTraces(newEntries) {
+  traces.push(...newEntries);
+  $('#trace-count').textContent = traces.length;
+  const rows = $('#trace-rows');
+  for (const t of newEntries) {
+    const detail = el('tr', { className: 'hidden' }, el('td', { colSpan: 8 },
+      el('h4', { textContent: 'Request' + (t.request.truncated ? ' (truncated)' : '') }), el('pre', { textContent: t.request.text }),
+      el('h4', { textContent: 'Response' + (t.response.truncated ? ' (truncated)' : '') }), el('pre', { textContent: t.response.text })));
+    const row = el('tr', { className: 'trace', onclick: () => detail.classList.toggle('hidden') },
+      el('td', { textContent: t.id }),
+      el('td', { textContent: new Date(t.time * 1000).toLocaleTimeString() }),
+      el('td', { textContent: t.transport }),
+      el('td', { textContent: t.protocol }),
+      el('td', { textContent: t.method || '?' }),
+      el('td', {}, el('span', { className: 'status ' + statusClass(t.status), textContent: t.status })),
+      el('td', { textContent: t.duration_ms }),
+      el('td', { textContent: `${t.request.size} / ${t.response.size}` }));
+    rows.prepend(detail);
+    rows.prepend(row);
+  }
+}
+
+async function pollTraces() {
+  if (!$('#live').checked) return;
+  try {
+    const entries = await api('/traces?after=' + lastTraceId);
+    if (entries.length) {
+      lastTraceId = entries[entries.length - 1].id;
+      renderTraces(entries);
+    }
+  } catch (err) { /* server restarting */ }
+}
+
+async function main() {
+  const info = await api('/info');
+  protocols = info.protocols;
+  $('#title').textContent = info.name;
+  document.title = info.name + ' - Relst Console';
+  $('#help').textContent = info.help || '';
+  $('#methods').append(...Object.entries(info.methods).map(([name, description]) => buildMethod(name, description)));
+
+  for (const button of document.querySelectorAll('nav button')) {
+    button.onclick = () => {
+      document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b === button));
+      for (const tab of ['methods', 'traces']) $('#tab-' + tab).classList.toggle('hidden', tab !== button.dataset.tab);
+    };
+  }
+  $('#clear-traces').onclick = async () => {
+    await api('/traces', { method: 'DELETE' });
+    traces.length = 0;
+    $('#trace-rows').replaceChildren();
+    $('#trace-count').textContent = 0;
+  };
+
+  await pollTraces();
+  setInterval(pollTraces, 1000);
+}
+
+main();
+</script>
+</body>
+</html>

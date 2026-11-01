@@ -5,10 +5,11 @@ from setuptools import setup, find_packages
 def main():
     setup(
         name="relst",
-        version="1.0.0",
+        version="1.1.0",
         author="Ariel Tubul",
         description="Package used to implement relst-api server and client",
-        packages=find_packages(),
+        packages=find_packages(exclude=['tests']),
+        package_data={'relst.server': ['ui/*.html']},
         install_requires=list(get_requirements())
     )
 

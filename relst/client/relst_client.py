@@ -1,60 +1,97 @@
-from inspect import Signature
+from typing import Dict, Set, Tuple
 from abc import ABC, abstractmethod
+from ..protocol import Codec, get_codec, DEFAULT_PROTOCOL
 
 
-CLIENT_CONSTANT_METHODS = ['update_methods']
+GET_CLASS_NAME_REQUEST = '__get_class_name'
+GET_CLASS_HELP_REQUEST = '__get_class_help'
 GET_METHODS_LIST_REQUEST = '__get_methods_list'
-PRIVATE_OR_PROTECTED_PREFIX = '_'
+GET_METHOD_HELP_REQUEST = '__get_method_help'
+UPDATE_SERVER_REQUEST = '__update_server'
 
-# TODO: define following:
-# __get_class_name,
-# __get_class_help,
-# __get_method_help,
-# __update_server
+PRIVATE_OR_PROTECTED_PREFIX = '_'
 
 
 class RelstClient(ABC):
-    # NOTE: this name musn't be overriden by server methods
+    """
+    Client of a relst server. After UPDATE_METHODS (or entering a `with` block)
+    every public server-method is available as a python method of the client.
+    NOTE: Uppercase names are reserved for the client, server methods can't override them
+    """
+
+    def __init__(self, protocol: str = DEFAULT_PROTOCOL):
+        self._codec: Codec = get_codec(protocol)
+        self._dynamic_methods: Set[str] = set()
+
     def UPDATE_METHODS(self):
         self._remove_methods()
-        methods_list_response = self._handle_request(GET_METHODS_LIST_REQUEST)
+        methods_list = self._handle_request(GET_METHODS_LIST_REQUEST)
 
-        # TODO: parse methods_list
-        methods_list = methods_list_response
+        for method_name, method_description in methods_list.items():
+            self._add_method(method_name, method_description)
 
-        for method in methods_list:
-            self._add_method(**method)
+    def CLASS_NAME(self) -> str:
+        return self._handle_request(GET_CLASS_NAME_REQUEST)
+
+    def CLASS_HELP(self) -> str:
+        return self._handle_request(GET_CLASS_HELP_REQUEST)
+
+    def METHOD_HELP(self, method_name: str) -> str:
+        return self._handle_request(GET_METHOD_HELP_REQUEST, method_name=method_name)
+
+    def UPDATE_SERVER(self):
+        self._handle_request(UPDATE_SERVER_REQUEST)
+
+    def _handle_request(self, method_name: str, /, **method_args):
+        """
+        :except: RelstRemoteError when the server reports an error, RelstProtocolError for bad payloads
+        """
+
+        request = self._codec.encode_request(method_name, method_args)
+        status, response = self._send(method_name, request)
+        return self._codec.decode_response(response, status)
 
     @abstractmethod
-    def _handle_request(self, method_name: str, **method_args) -> dict:
-        pass
+    def _send(self, method_name: str, request: bytes) -> Tuple[int, bytes]:
+        """transport-level exchange, returns (http-like status, response bytes)"""
 
     def _remove_methods(self):
-        """
-        :brief: method used to remove all public functions (except for exceptions)
-        :remarks: note for the race condition (where attribute is deleted before delattr)
-        """
+        for method_name in self._dynamic_methods:
+            self.__dict__.pop(method_name, None)
 
-        should_method_be_deleted = lambda first_letter: (
-            first_letter!= PRIVATE_OR_PROTECTED_PREFIX
-            and not first_letter.isupper()
-        )
+        self._dynamic_methods.clear()
 
-        for attribute_name in dir(self):
-            if should_method_be_deleted(attribute_name[0]):
-                delattr(self, attribute_name)
+    def _add_method(self, method_name: str, description: Dict):
+        # NOTE: server must not shadow client's own attributes
+        if method_name.startswith(PRIVATE_OR_PROTECTED_PREFIX) or hasattr(type(self), method_name):
+            return
 
-    def _add_method(self, method_name: str, method_signature: Signature):
-        def method_caller(**kwargs):
+        parameters = [param['name'] for param in description.get('params', [])]
+
+        def method_caller(*args, **kwargs):
+            if len(args) > len(parameters):
+                raise TypeError(f'{method_name}() takes at most {len(parameters)} positional arguments')
+
+            for parameter_name, argument in zip(parameters, args):
+                if parameter_name in kwargs:
+                    raise TypeError(f'{method_name}() got multiple values for argument {parameter_name!r}')
+
+                kwargs[parameter_name] = argument
+
             return self._handle_request(method_name, **kwargs)
 
         method_caller.__name__ = method_name
-        method_caller.__annotations__ = method_signature.__annotations__
+        method_caller.__doc__ = description.get('doc')
 
+        self._dynamic_methods.add(method_name)
         setattr(self, method_name, method_caller)
+
+    def close(self):
+        pass
 
     def __enter__(self):
         self.UPDATE_METHODS()
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        pass
+        self.close()
