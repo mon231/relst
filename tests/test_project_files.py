@@ -77,3 +77,10 @@ def test_readme_mentions_every_public_class():
 
     for name in ('RelstTextualServer', 'RelstBinaryServer', 'RelstFlaskClient', 'RelstSocketClient', 'pip install relst'):
         assert name in readme
+
+
+def test_workflows_run_on_ubuntu_only():
+    for workflow in (ROOT / '.github/workflows').glob('*.yml'):
+        runners = re.findall(r'runs-on:\s*(\S+)', workflow.read_text(encoding='utf-8'))
+
+        assert runners and all(runner == 'ubuntu-latest' for runner in runners), workflow.name
