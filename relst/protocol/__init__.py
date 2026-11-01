@@ -1,7 +1,7 @@
 from .codec import Codec
 from .json_codec import JsonCodec
 from .xml_codec import XmlCodec
-from .binary_codec import BinaryCodec, Frame, FrameHeader, FRAME_HEADER_SIZE
+from .binary_codec import BinaryCodec, Frame, FrameHeader, FrameKind, ValueTag, FRAME_HEADER_SIZE
 from .errors import RelstProtocolError, RelstRemoteError
 from .values import to_plain
 

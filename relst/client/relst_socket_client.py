@@ -2,7 +2,7 @@ import socket
 import threading
 from typing import Tuple
 from .relst_client import RelstClient
-from ..protocol import FRAME_HEADER_SIZE, Frame, RelstProtocolError
+from ..protocol import Frame, RelstProtocolError
 
 
 class RelstSocketClient(RelstClient):
@@ -22,15 +22,13 @@ class RelstSocketClient(RelstClient):
                 connection = self.__connection()
                 connection.sendall(request)
 
-                header_bytes = self.__read(connection, FRAME_HEADER_SIZE)
-                header = Frame.parse_header(header_bytes)
-                body = self.__read(connection, header.name_length + header.payload_length)
+                _, raw_response = Frame.read(lambda size: self.__read(connection, size))
             except (OSError, RelstProtocolError):
                 self.__disconnect()
                 raise
 
         # NOTE: binary frames carry their own kind, status is only informative
-        return 200, header_bytes + body
+        return 200, raw_response
 
     def close(self):
         with self.__lock:

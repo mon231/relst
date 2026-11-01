@@ -4,8 +4,8 @@ import time
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 from relst.client import RelstSocketClient
-from relst.protocol import BinaryCodec, Frame, RelstRemoteError, FRAME_HEADER_SIZE
-from relst.protocol.binary_codec import KIND_ERROR, KIND_RESPONSE, decode_value, encode_value
+from relst.protocol import BinaryCodec, Frame, FrameKind, RelstRemoteError
+from relst.protocol.binary_codec import decode_value, encode_value, encode_varint
 from relst.server import RelstBinaryServer
 from relst.server.binary_server import MAX_FRAME_BYTES
 
@@ -27,9 +27,7 @@ def read_frame(connection: socket.socket) -> Frame:
             data += chunk
         return data
 
-    header_bytes = read(FRAME_HEADER_SIZE)
-    header = Frame.parse_header(header_bytes)
-    return Frame.from_bytes(header_bytes + read(header.name_length + header.payload_length))
+    return Frame.read(read)[0]
 
 
 def test_client_calls(tcp_client):
@@ -81,27 +79,27 @@ def test_garbage_gets_error_frame_then_disconnect(tcp_server):
     with connect(tcp_server) as connection:
         connection.sendall(b'GET / HTTP/1.1\r\nHost: x\r\n\r\n')
         frame = read_frame(connection)
-        assert frame.kind == KIND_ERROR
-        assert decode_value(frame.payload)['code'] == 400
+        assert frame.kind == FrameKind.ERROR
+        assert decode_value(frame.payload)[0] == 400
 
         with pytest.raises(EOFError):
             read_frame(connection)
 
 
 def test_oversized_frame_is_refused_without_reading_body(tcp_server):
-    header = b'RLST' + struct.pack('>BBHI', 1, 0, 4, MAX_FRAME_BYTES + 1)
+    header = Frame(FrameKind.REQUEST, 'echo', b'').to_bytes()[:-1] + encode_varint(MAX_FRAME_BYTES + 1)
 
     with connect(tcp_server) as connection:
         connection.sendall(header)
         frame = read_frame(connection)
 
-    assert frame.kind == KIND_ERROR and 'bigger' in decode_value(frame.payload)['message']
+    assert frame.kind == FrameKind.ERROR and 'exceeds limit' in decode_value(frame.payload)[1]
 
 
 def test_truncated_frame_then_close_does_not_hurt_server(tcp_server):
     request = CODEC.encode_request('echo', {'prefix': 'a', 'text': 'b'})
 
-    for cut in (1, 5, FRAME_HEADER_SIZE, FRAME_HEADER_SIZE + 2, len(request) - 1):
+    for cut in (1, 2, 5, len(request) - 1):
         connection = connect(tcp_server)
         connection.sendall(request[:cut])
         connection.shutdown(socket.SHUT_WR)
@@ -113,27 +111,27 @@ def test_truncated_frame_then_close_does_not_hurt_server(tcp_server):
 
 
 def test_valid_frame_with_bad_payload_keeps_connection(tcp_server):
-    bad_payload = Frame(0, 'echo', b'\xee\xee').to_bytes()
+    bad_payload = Frame(FrameKind.REQUEST, 'echo', b'\xee\xee').to_bytes()
     good = CODEC.encode_request('echo', {'prefix': 'a', 'text': 'b'})
 
     with connect(tcp_server) as connection:
         connection.sendall(bad_payload + good)
-        assert read_frame(connection).kind == KIND_ERROR
-        assert read_frame(connection).kind == KIND_RESPONSE
+        assert read_frame(connection).kind == FrameKind.ERROR
+        assert read_frame(connection).kind == FrameKind.RESPONSE
 
 
 def test_frame_without_method_name(tcp_server):
     with connect(tcp_server) as connection:
-        connection.sendall(Frame(0, '', encode_value({})).to_bytes())
+        connection.sendall(Frame(FrameKind.REQUEST, '', encode_value({'a': 1})).to_bytes())
         frame = read_frame(connection)
 
-    assert frame.kind == KIND_ERROR and decode_value(frame.payload)['code'] == 400
+    assert frame.kind == FrameKind.ERROR and decode_value(frame.payload)[0] == 400
 
 
 def test_response_frame_sent_as_request_is_rejected(tcp_server):
     with connect(tcp_server) as connection:
-        connection.sendall(Frame(KIND_RESPONSE, 'echo', encode_value({})).to_bytes())
-        assert read_frame(connection).kind == KIND_ERROR
+        connection.sendall(Frame(FrameKind.RESPONSE, 'echo', encode_value({})).to_bytes())
+        assert read_frame(connection).kind == FrameKind.ERROR
 
 
 def test_many_connections_in_parallel(tcp_server):
@@ -179,7 +177,7 @@ def test_traces_record_tcp_calls(tcp_server, tcp_client):
     entry = tcp_server.traces.entries()[-1]
 
     assert (entry['transport'], entry['protocol'], entry['method'], entry['status']) == ('tcp', 'binary', 'echo', 200)
-    assert entry['request']['text'].startswith(b'RLST'.hex())
+    assert entry['request']['text'].startswith('04')
 
 
 def test_server_stop_releases_the_port(handler):

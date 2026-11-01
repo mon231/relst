@@ -114,7 +114,7 @@ def test_traces_capture_real_traffic_of_all_protocols(http_server):
     ]
     assert '"prefix"' in entries[0]['request']['text'] and '"ab"' in entries[0]['response']['text']
     assert '<arg name="prefix">' in entries[1]['request']['text']
-    assert entries[2]['request']['text'].startswith('524c5354')
+    assert entries[2]['request']['text'].startswith('04')
     assert all(entry['duration_ms'] >= 0 for entry in entries)
 
 

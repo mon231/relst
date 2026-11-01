@@ -20,7 +20,7 @@ class JsonCodec(Codec):
     def is_binary(self) -> bool:
         return False
 
-    def encode_request(self, method: str, kwargs: dict) -> bytes:
+    def encode_request(self, method: str, kwargs: dict, embed_method: bool = True) -> bytes:
         return self._dumps(kwargs)
 
     def decode_request(self, data: bytes) -> Tuple[Optional[str], dict]:

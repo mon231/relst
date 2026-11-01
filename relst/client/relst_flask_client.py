@@ -7,6 +7,8 @@ from ..protocol import DEFAULT_PROTOCOL
 class RelstFlaskClient(RelstClient):
     """Client of RelstTextualServer, speaks json / xml / binary over http"""
 
+    _embed_method = False
+
     def __init__(self, server_address: str, server_port: int, is_https: bool = False,
                  protocol: str = DEFAULT_PROTOCOL, timeout: float = 30):
         super().__init__(protocol)

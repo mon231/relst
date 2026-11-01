@@ -30,9 +30,9 @@ class XmlCodec(Codec):
     def is_binary(self) -> bool:
         return False
 
-    def encode_request(self, method: str, kwargs: dict) -> bytes:
+    def encode_request(self, method: str, kwargs: dict, embed_method: bool = True) -> bytes:
         _check_name(method)
-        root = ElementTree.Element('request', {'method': method})
+        root = ElementTree.Element('request', {'method': method} if embed_method else {})
 
         for name, value in to_plain(kwargs).items():
             _check_name(name)

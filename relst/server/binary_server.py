@@ -3,7 +3,7 @@ import threading
 import socketserver
 from typing import Type
 from .relst_server import RelstServer
-from ..protocol import CODECS, FRAME_HEADER_SIZE, Frame, RelstProtocolError
+from ..protocol import CODECS, Frame, RelstProtocolError
 
 
 MAX_FRAME_BYTES = 1024 * 1024
@@ -71,20 +71,24 @@ class RelstBinaryServer(RelstServer):
     def _serve_connection(self, reader, writer):
         codec = CODECS['binary']
 
+        def read_exact(size: int) -> bytes:
+            data = reader.read(size)
+
+            if len(data) != size:
+                raise RelstProtocolError('connection closed in the middle of a frame')
+
+            return data
+
         try:
-            while header_bytes := reader.read(FRAME_HEADER_SIZE):
-                header = Frame.parse_header(header_bytes)
-                body_size = header.name_length + header.payload_length
+            while first_byte := reader.read(1):
+                pending = [first_byte]
 
-                if body_size > MAX_FRAME_BYTES:
-                    raise RelstProtocolError(f'frame bigger than {MAX_FRAME_BYTES} bytes')
+                def read_next(size: int) -> bytes:
+                    return pending.pop() + read_exact(size - 1) if pending else read_exact(size)
 
-                body = reader.read(body_size)
-
-                if len(body) != body_size:
-                    raise RelstProtocolError('connection closed in the middle of a frame')
-
-                _, response = self.handle(codec, None, header_bytes + body, 'tcp')
+                # NOTE: oversized frames are refused by their header, before their body is read
+                _, raw_frame = Frame.read(read_next, MAX_FRAME_BYTES)
+                _, response = self.handle(codec, None, raw_frame, 'tcp')
                 writer.write(response)
                 writer.flush()
         except RelstProtocolError as err:

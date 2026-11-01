@@ -23,6 +23,9 @@ class RelstClient(ABC):
         self._codec: Codec = get_codec(protocol)
         self._dynamic_methods: Set[str] = set()
 
+    # NOTE: transports that carry the method-name themselves (http url) set this to False
+    _embed_method = True
+
     def UPDATE_METHODS(self):
         self._remove_methods()
         methods_list = self._handle_request(GET_METHODS_LIST_REQUEST)
@@ -47,7 +50,7 @@ class RelstClient(ABC):
         :except: RelstRemoteError when the server reports an error, RelstProtocolError for bad payloads
         """
 
-        request = self._codec.encode_request(method_name, method_args)
+        request = self._codec.encode_request(method_name, method_args, embed_method=self._embed_method)
         status, response = self._send(method_name, request)
         return self._codec.decode_response(response, status)
 

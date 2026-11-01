@@ -13,8 +13,10 @@ class Codec(ABC):
     content_type: str
 
     @abstractmethod
-    def encode_request(self, method: str, kwargs: dict) -> bytes:
-        pass
+    def encode_request(self, method: str, kwargs: dict, embed_method: bool = True) -> bytes:
+        """
+        :param embed_method: repeat the method name inside the payload (pointless when the transport carries it)
+        """
 
     @abstractmethod
     def decode_request(self, data: bytes) -> Tuple[Optional[str], dict]:

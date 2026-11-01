@@ -5,7 +5,8 @@ from relst.protocol import (
     CODECS, BinaryCodec, JsonCodec, XmlCodec, RelstProtocolError, RelstRemoteError,
     codec_from_content_type, get_codec,
 )
-from relst.protocol.binary_codec import MAX_DEPTH, Frame, encode_value, decode_value
+from relst.protocol import FrameKind
+from relst.protocol.binary_codec import MAX_DEPTH, Frame, encode_value, decode_value, encode_varint
 
 
 ANY_CHAR = st.characters(min_codepoint=0, max_codepoint=0x10ffff, exclude_categories=())
@@ -172,7 +173,7 @@ def test_deep_nesting_is_refused_everywhere():
         XmlCodec().decode_response(b'<response>' + b'<value type="list">' * 5000 + b'</value>' * 5000 + b'</response>')
 
     with pytest.raises(RelstProtocolError):
-        decode_value(b'\x07\x00\x00\x00\x01' * 5000)
+        decode_value(b'\x21' * 5000)
 
 
 def test_nesting_at_the_limit_works():
@@ -256,17 +257,46 @@ def test_error_roundtrip_all_protocols():
 
 
 def test_binary_frame_layout_is_stable():
-    frame = BinaryCodec().encode_request('echo', {})
-    assert frame[:4] == b'RLST'
-    assert frame[4] == 1 and frame[5] == 0
-    assert int.from_bytes(frame[6:8], 'big') == 4
-    assert int.from_bytes(frame[8:12], 'big') == len(frame) - 12 - 4
-    assert frame[12:16] == b'echo'
+    # header byte: kind (2 bits) | version=1 (2 bits), [name size, name], payload size, payload
+    assert BinaryCodec().encode_request('echo', {}) == b'\x04\x04echo\x00'
+    assert BinaryCodec().encode_request('echo', {}, embed_method=False) == b'\x04\x00\x00'
+    assert BinaryCodec().encode_request('echo', {'a': 1}, embed_method=False) == b'\x04\x00\x04\x11\x41a\x81'
+    assert BinaryCodec().encode_response(None) == b'\x05\x00'
+    assert BinaryCodec().encode_response(5) == b'\x05\x01\x85'
+    assert BinaryCodec().encode_error(404, 'x') == b'\x06\x06\x22\x03\xa8\x06\x41x'
+
+
+def test_binary_is_much_smaller_than_text_protocols():
+    kwargs = {'prefix': 'a', 'text': 'b', 'count': 3, 'flag': True}
+    sizes = {name: len(codec.encode_request('echo', kwargs, embed_method=False)) for name, codec in CODECS.items()}
+
+    assert sizes['binary'] < 40 and sizes['binary'] * 3 // 2 < sizes['json']
+
+
+@pytest.mark.parametrize('value, size', [
+    (0, 1), (127, 1), (128, 3), (-1, 2), (None, 1), (True, 1), ('', 1), ('x' * 63, 64), ('x' * 64, 66), ([], 1), ([1] * 31, 32),
+    ([1] * 32, 34), ({}, 1), (1.5, 5), (0.1, 9), (b'', 2), (b'ab', 4),
+])
+def test_binary_value_sizes(value, size):
+    assert len(encode_value(value)) == size
+    assert decode_value(encode_value(value)) == value
+
+
+def test_binary_sizes_are_varints_within_uint32():
+    assert encode_varint(0) == b'\x00' and encode_varint(127) == b'\x7f' and encode_varint(128) == b'\x80\x01'
+    assert len(encode_varint(0xFFFFFFFF)) == 5
+
+    with pytest.raises(RelstProtocolError):
+        encode_varint(0x100000000)
+
+    for bad in (b'\x04\x00\xff\xff\xff\xff\x7f', b'\x04\x00\xff\xff\xff\xff\xff\x01'):
+        with pytest.raises(RelstProtocolError):
+            BinaryCodec().decode_request(bad)
 
 
 @pytest.mark.parametrize('mutation', [
-    lambda f: f[:-1], lambda f: f + b'\x00', lambda f: b'XXXX' + f[4:], lambda f: f[:4] + b'\x09' + f[5:],
-    lambda f: f[:5] + b'\x07' + f[6:], lambda f: f[:11], lambda f: f[:8] + b'\xff\xff\xff\xff' + f[12:], lambda f: b'\x00',
+    lambda f: f[:-1], lambda f: f + b'\x00', lambda f: b'\xff' + f[1:], lambda f: b'\x0b' + f[1:],
+    lambda f: b'\x84' + f[1:], lambda f: f[:1], lambda f: b'\x00', lambda f: f[:1] + b'\xff\xff\xff\xff\x0f',
 ])
 def test_binary_frame_corruptions(mutation):
     frame = BinaryCodec().encode_response({'a': 1})
@@ -276,16 +306,29 @@ def test_binary_frame_corruptions(mutation):
 
 
 def test_binary_forged_counts_fail_fast_without_allocating():
-    for forged in (b'\x07\xff\xff\xff\xff', b'\x08\xff\xff\xff\xff', b'\x05\xff\xff\xff\xff', b'\x06\xff\xff\xff\xff', b'\x09\xff\xff\xff\xff'):
+    for forged in (b'\x08\xff\xff\xff\xff\x0f', b'\x09\xff\xff\xff\xff\x0f', b'\x06\xff\xff\xff\xff\x0f', b'\x07\xff\xff\xff\xff\x0f', b'\x3f', b'\x2f'):
         with pytest.raises(RelstProtocolError):
             decode_value(forged)
 
 
 def test_binary_trailing_bytes_and_bad_tags():
-    for payload in (encode_value(1) + b'\x00', b'\xee', b'', b'\x05\x00\x00\x00\x02\xff\xfe', b'\x09\x00\x00\x00\x00',
-                    b'\x08\x00\x00\x00\x01\x07\x00\x00\x00\x00\x00'):
+    for payload in (encode_value(1) + b'\x00', b'\x0a', b'\x0f', b'', b'\x06\x02\xff\xfe', b'\x42\xff\xfe', b'\x11\x20\x00'):
         with pytest.raises(RelstProtocolError):
             decode_value(payload)
+
+
+def test_binary_int_too_big_is_refused_not_hung():
+    with pytest.raises(RelstProtocolError):
+        decode_value(b'\x03' + b'\xff' * 10_000 + b'\x01')
+
+    with pytest.raises(RelstProtocolError):
+        encode_value(2 ** 40_000)
+
+
+def test_binary_float32_only_when_lossless():
+    assert len(encode_value(0.5)) == 5 and len(encode_value(0.1)) == 9
+    assert decode_value(encode_value(0.1)) == 0.1
+    assert len(encode_value(float('inf'))) == 5 and len(encode_value(1e39)) == 9
 
 
 @pytest.mark.parametrize('number', [0, -1, 2 ** 63 - 1, 2 ** 63, -2 ** 63, -2 ** 63 - 1, 2 ** 64, 2 ** 1000, -2 ** 1000])
@@ -300,10 +343,10 @@ def test_binary_request_requires_request_frame_and_dict_payload():
         codec.decode_request(codec.encode_response('x'))
 
     with pytest.raises(RelstProtocolError):
-        codec.decode_request(Frame(0, 'm', encode_value([1, 2])).to_bytes())
+        codec.decode_request(Frame(FrameKind.REQUEST, 'm', encode_value([1, 2])).to_bytes())
 
     with pytest.raises(RelstProtocolError):
-        codec.decode_request(Frame(0, 'm', encode_value({1: 2})).to_bytes())
+        codec.decode_request(Frame(FrameKind.REQUEST, 'm', encode_value({1: 2})).to_bytes())
 
 
 def test_binary_long_method_name_limit():

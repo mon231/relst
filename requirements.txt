@@ -1,6 +1,4 @@
-eel
+flask
 waitress
 requests
-pyinstaller
-flask
 firstclass
