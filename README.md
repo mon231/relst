@@ -178,10 +178,12 @@ The suite (250+ tests) covers property-based round trips of every protocol, fuzz
 hostile payloads (XML entity bombs, deep nesting, huge ints, forged binary lengths), http and tcp
 end-to-end behavior, concurrency, server restarts and the console endpoints.
 
-Publishing:
+Publishing: pushing a version tag releases to PyPI through GitHub Actions (`.github/workflows/publish.yml`,
+needs the repo secret `PYPI_API_TOKEN`). The package version is taken from the tag.
 
 ```bash
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
+git tag v1.2.3
+git push origin v1.2.3
 ```
+
+Manual upload: `python -m build && python -m twine upload dist/*`.

@@ -29,7 +29,6 @@ wheels/
 *.cover
 .scrapy
 target/
-example*
 MANIFEST
 htmlcov/
 env.bak/
@@ -75,7 +74,8 @@ db.sqlite3-journal
 .ipynb_checkpoints
 celerybeat-schedule
 share/python-wheels/
-pip-delete-this-directory.txt.playwright-mcp/
-dist/
-build/
-*.egg-info/
+pip-delete-this-directory.txt
+
+# project
+.playwright-mcp/
+.claude/
