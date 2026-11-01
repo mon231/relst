@@ -18,16 +18,17 @@ def to_plain(obj, _depth: int = 0):
     if _depth > MAX_DEPTH:
         raise RelstProtocolError(f'value nested deeper than {MAX_DEPTH}')
 
-    if obj is None or isinstance(obj, (bool, int, float, str, bytes)):
-        return obj
-
     next_depth = _depth + 1
+
+    if isinstance(obj, Enum):
+        # NOTE: before the primitives check, IntEnum / StrEnum are ints / strs too
+        return to_plain(obj.value, next_depth)
+
+    if obj is None or isinstance(obj, (bool, int, float, str, bytes)):
+        return exact_primitive(obj)
 
     if isinstance(obj, (bytearray, memoryview)):
         return bytes(obj)
-
-    if isinstance(obj, Enum):
-        return to_plain(obj.value, next_depth)
 
     if hasattr(obj, 'to_dict') and hasattr(type(obj), 'from_dict'):
         # firstclass objects
@@ -54,9 +55,33 @@ def to_plain(obj, _depth: int = 0):
     return str(obj)
 
 
+def exact_primitive(obj):
+    """
+    :brief: maps subclasses of the primitives (IntEnum, IntFlag, str-mixins, numpy-like floats) onto the exact type,
+            their str() / repr() differ between python versions (3.10: str(IntEnum) == 'Color.BLUE')
+    """
+
+    if obj is None or type(obj) in (bool, int, float, str, bytes):
+        return obj
+
+    if isinstance(obj, int):
+        return int(obj)
+
+    if isinstance(obj, float):
+        return float(obj)
+
+    if isinstance(obj, str):
+        return str.__str__(obj)
+
+    return bytes(obj)
+
+
 def to_plain_key(key):
+    if isinstance(key, Enum):
+        return to_plain_key(key.value)
+
     if isinstance(key, (str, int, bool, float, bytes)) or key is None:
-        return key
+        return exact_primitive(key)
 
     return str(key)
 

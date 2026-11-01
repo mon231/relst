@@ -4,7 +4,7 @@ import threading
 from time import perf_counter
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, Iterator, Optional, Tuple
-from inspect import getdoc, isawaitable, isroutine, signature
+from inspect import getattr_static, getdoc, isawaitable, isroutine, signature
 from ..protocol import Codec, RelstProtocolError, to_plain
 from .tracing import TraceLog, render_body
 
@@ -236,9 +236,13 @@ class RelstServer(ABC):
                 continue
 
             try:
+                # NOTE: properties may be expensive or have side effects, never evaluate them
+                if isinstance(getattr_static(obj, attribute_name), property):
+                    continue
+
                 attribute_value = getattr(obj, attribute_name)
-            except AttributeError:
-                # NOTE: race, attribute removed between dir(obj) and getattr
+            except Exception:
+                # NOTE: race (attribute removed between dir(obj) and getattr) or a broken descriptor
                 continue
 
             if isroutine(attribute_value):
